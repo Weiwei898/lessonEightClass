@@ -7,6 +7,10 @@ const discardAllBtn = document.querySelector('.discardAllBtn');//宣告DOM購物
 const addOrderBtn = document.querySelector('.orderInfo-btn');//宣告DOM送出預訂資料
 window.latestOrderData = null; // 用於儲存最新的訂單資料
 
+// - 取得與渲染產品列表
+// - 購物車操作（加入、刪除單筆、刪除全部、顯示 API 回傳小計 finalTotal）
+// - 建立訂單與表單驗證（送出後會重新取得購物車狀態）
+
 //通用API路徑
 const baseURL = "https://livejs-api.hexschool.io";
 const api_path = "h2cjdqaay3mbskg25gmawhsue4u2";
@@ -41,7 +45,7 @@ function getProductsData(data) {
   let arr = "";
   // 定義格式化函式
   const formatCurrency = (value) => {
-    //將輸入值強制轉換為數字
+    // 將輸入值強制轉換為數字
     const number = Number(value);
     // 檢查是否為有效的數字
     if (typeof number !== 'number' || isNaN(number)) {
@@ -136,6 +140,10 @@ function getCartList() {
 
 //渲染畫面(產品內容)在getCartList()執行
 function renderCart(cartData, finalTotal) {
+  // 從 API 回傳的 cart item 可能有不同結構，這裡盡量相容
+  // - item.price 或 item.product.price
+  // - item.qty / item.quantity
+  // finalTotal 由 API 計算並回傳，優先顯示此欄位以與後端一致
   let arr = "";
   cartData.forEach((item) => {
     // 假設 API 每個 cart item 有: id, title, images, price, quantity
@@ -162,7 +170,7 @@ function renderCart(cartData, finalTotal) {
           </tr>
         `;
   });
-  // 修正：把內容輸出到正確的 tbody dom
+  // 把內容輸出到正確的 tbody dom
   if (cartList) cartList.innerHTML = arr;
 
   // 顯示 API 小計 (finalTotal)，如果存在則格式化並顯示
@@ -174,6 +182,7 @@ function renderCart(cartData, finalTotal) {
 
 // 清除購物車內全部產品
 function deleteAllCartList() {
+  // 呼叫刪除全部購物車 API，成功後重新抓取購物車以更新畫面
   axios.delete(deleteAllCartUrl)
     .then(function (response) {
       // 刪除成功後重新抓購物車
@@ -186,6 +195,7 @@ function deleteAllCartList() {
 
 // 刪除購物車內特定產品
 function deleteCartItem(cartId) {
+  // 刪除單筆購物車項目，API 路徑需要 cartId
   if (!cartId) return;
   axios.delete(`${baseURL}/api/livejs/v1/customer/${api_path}/carts/${cartId}`)
     .then(function (response) {
@@ -225,6 +235,8 @@ if (discardAllBtn) {
 // 送出購買訂單
 // 送出購買訂單（修改：改為接收表單傳入的 userData，並在成功後重新取得購物車）
 function createOrder(userData) {
+  // userData 應包含 name, tel, email, address, payment
+  // 成功送出後，後端應會清空購物車或回傳新的購物車狀態，因此這裡會呼叫 getCartList()
   // 傳入的 userData 應為 { name, tel, email, address, payment }
   const payload = {
     data: {
@@ -260,7 +272,7 @@ if (addOrderBtn) {
     const addressEl = document.querySelector('#customerAddress');
     const payEl = document.querySelector('#tradeWay');
 
-    // 修改：改為使用頁面上的提示區塊顯示錯誤訊息（優先使用 .alert-message p），若不存在則 fallback 到 .orderInfo-message
+    // 使用頁面上的提示區塊顯示錯誤訊息（優先使用 .alert-message p），若不存在則 fallback 到 .orderInfo-message
     const messageElements = document.querySelectorAll('.alert-message p');
     let isValid = true;
 
@@ -348,9 +360,14 @@ function setupProductEvents() {
 
 //執行
 function init() {
-  getProductList()//從data取得產品列表
-  getCartList()//從data取得購物車列表
-  setupProductEvents(); // 確保這裡只執行一次事件綁定
+  // 只在存在對應 DOM 時才執行相關功能，避免在 admin.html 等沒有 productWrap 的頁面出錯
+  if (productWrap) {
+    getProductList();// 從 data 取得產品列表
+    setupProductEvents(); // 產品相關事件
+  }
+  if (cartList) {
+    getCartList();// 從 data 取得購物車列表
+  }
 }
 init()
 
