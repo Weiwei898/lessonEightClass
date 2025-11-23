@@ -1,28 +1,30 @@
 const productWrap = document.querySelector('.productWrap');//宣告DOM產品卡片 渲染畫面用(產品內容)
 const productSelect = document.querySelectorAll('.productSelect');//宣告DOM篩選區域
-const addCardBtn = document.querySelector('.addCardBtn');//宣告DOM加入購物車
-const shoppingCart = document.querySelector('.shoppingCart');//宣告DOM購物車
-const clearBroductBtn = document.querySelector('.discardBtn');//宣告DOM購物車刪除產品
+
+const cartList = document.querySelector('.cartList');// 宣告DOM購物車清單 (tbody)
+const totalPrice = document.querySelector('.shoppingCart-table tfoot td:last-child'); // 宣告DOM購物車總計金額
 const discardAllBtn = document.querySelector('.discardAllBtn');//宣告DOM購物車刪除所有產品
 const addOrderBtn = document.querySelector('.orderInfo-btn');//宣告DOM送出預訂資料
+
 
 //通用API路徑
 const baseURL = "https://livejs-api.hexschool.io";
 const api_path = "h2cjdqaay3mbskg25gmawhsue4u2";
 //const token = "h2cjdqaay3mbskg25gmawhsue4u2";
-//匯入產品API
+// 取得產品列表API
 const productsUrl = `${baseURL}/api/livejs/v1/customer/${api_path}/products`;
-
-//這個宣告可能用不到
-let data = [];//用來放API回來的資料
-const productCards = document.querySelectorAll('.productCard');//宣告DOM每一張卡片)
+// 加入購物車API
+const addCartUrl = `${baseURL}/api/livejs/v1/customer/${api_path}/carts`;
+// 取得購物車列表API
+const getCartUrl = `${baseURL}/api/livejs/v1/customer/${api_path}/carts`;
+// 清除購物車內全部產品API
+const deleteAllCartUrl = `${baseURL}/api/livejs/v1/customer/${api_path}/carts`;
 
 // 取得產品列表
 function getProductList() {
   axios.get(productsUrl).
     then(function (response) {
       const productsData = response.data.products;
-      console.log(productsData); //檢查用
       getProductsData(productsData); //渲染畫面(產品內容)
       setFilter(productsData) //渲染畫面(篩選的產品內容)
     })
@@ -31,7 +33,7 @@ function getProductList() {
     })
 }
 
-//渲染畫面(產品內容)
+//渲染畫面(產品內容)在getProductList()執行
 function getProductsData(data) {
   let arr = "";
   // 定義格式化函式
@@ -57,21 +59,34 @@ function getProductsData(data) {
     const formattedNowPrice = formatCurrency(item.price);
     arr += `
           <li class="productCard">
-        <h4 class="productType">新品</h4>
-        <img
-          src="${item.images}"
-          alt="">
-        <a href="#" class="addCardBtn">加入購物車</a>
-        <h3 class="ticket-name">${item.title}</h3>
-        <del class="originPrice">${formattedOriginPrice}</del>
-        <p class="nowPrice">${formattedNowPrice}</p>
-      </li>
-          `;
+            <h4 class="productType">新品</h4>
+            <img
+              src="${item.images}"
+              alt="">
+            <a href="#" class="addCardBtn" data-id="${item.id}">加入購物車</a>
+            <h3 class="ticket-name">${item.title}</h3>
+            <del class="originPrice">${formattedOriginPrice}</del>
+            <p class="nowPrice">${formattedNowPrice}</p>
+          </li>
+        `;
   });
   productWrap.innerHTML = arr;
+  //加入購物車的連結(按鈕)DOM
+  if (productWrap) {
+    productWrap.addEventListener('click', function (e) {
+      // 檢查點擊的目標是否是我們要的按鈕
+      if (e.target.classList.contains('addCardBtn')) {
+        // 取消 a 標籤預設的跳轉行為(可在渲染改用<button type="button" class="addCardBtn" data-id="${item.id}">加入購物車</button>)
+        e.preventDefault();
+        // 獲取產品 ID (假設您已經在模板中加入 data-id 屬性)
+        addCartItem(e.target.dataset.id);
+        
+      }
+    });
+  }
 }
 
-// 設定篩選功能
+// 設定篩選功能在getProductList()執行
 function setFilter(allData) {
   productSelect.forEach(select => {
     select.addEventListener("change", (e) => {
@@ -86,188 +101,168 @@ function setFilter(allData) {
   });
 }
 
-function buildDataFromCards() {
-  data = [];
-  //productCards.forEach(function(card
-  productCards.forEach(card => {
-    const id = getNextId();
-    const productType = card.querySelector('.productType').textContent;
-    const imgUrl = card.querySelector('img').src;
-    const name = card.querySelector('.ticket-name').textContent;
-    const originPrice = Number(card.querySelector('.originPrice').textContent.replace(/[^\d]/g, ''));
-    //replace(/[^\d]/g, '') /.../ =正規表達式字面量; []=字元集合; ^=不是; /d=0~9; g=全域搜索(這段字串裡)
-    //string.replace(搜尋目標, 替換成什麼)
-    const nowPrice = Number(card.querySelector('.nowPrice').textContent.replace(/[^\d]/g, ''));
+// 加入購物車
+function addCartItem(id) {
+  axios.post(addCartUrl, {
+    data: {
+      "productId": id, // 商品 id
+      "quantity": 1 // 預設數量為 1
+    }
+  }).
+    then(function (response) {
+      getCartList();
+    })
+    .catch(function (error) {
+      console.log(error)
+    })
+}
 
-    data.push({
-      id,
-      productType,
-      imgUrl,
-      name,
-      originPrice,
-      nowPrice
-    });
+// 共用：格式化金額（新增，供多處使用）
+function formatCurrency(value) {
+  const number = Number(value);
+  if (typeof number !== 'number' || isNaN(number)) {
+    return '$NT 0';
+  }
+  return number.toLocaleString('zh-TW', {
+    style: 'currency',
+    currency: 'NTD',
+    minimumFractionDigits: 0
+  }).replace('NTD', 'NT$');
+}
 
+// 取得購物車列表（修正：同時處理 API 回傳的 finalTotal）
+function getCartList() {
+  axios.get(getCartUrl)
+    .then(function (response) {
+      let cartData = response.data.carts;
+      // 呼叫渲染購物車畫面，並將 API 的 finalTotal 傳入
+      renderCart(cartData, response.data.finalTotal);
+    })
+    .catch(function (error) {
+      console.log(error)
+    })
+}
+
+//渲染畫面(產品內容)在getCartList()執行
+function renderCart(cartData, finalTotal) {
+  let arr = "";
+  cartData.forEach((item) => {
+    // 假設 API 每個 cart item 有: id, title, images, price, quantity
+    const unitPrice = item.price || (item.product && item.product.price) || 0;
+    const qty = item.qty || item.quantity || 1;
+    const amount = unitPrice * qty;
+    const formattedNowPrice = formatCurrency(unitPrice);
+    const formattedAmount = formatCurrency(amount);
+    arr += `
+          <tr class="border-top border-bottom border-secondary">
+            <td>
+              <div class="cardItem-title">
+                <img src="${item.images || (item.product && item.product.images) || ''}" alt="">
+                <p>${item.title || (item.product && item.product.title) || ''}</p>
+              </div>
+            </td>
+            <td>${formattedNowPrice}</td>
+            <td>${qty}</td>
+            <td>${formattedAmount}</td>
+            <td class="discardBtn">
+              <!-- 新增 data-id 屬性供刪除 API 使用 (修改) -->
+              <a href="#" class="material-icons" data-id="${item.id}">clear</a>
+            </td>
+          </tr>
+        `;
+  });
+  // 修正：把內容輸出到正確的 tbody dom
+  if (cartList) cartList.innerHTML = arr;
+
+  // 顯示 API 小計 (finalTotal)，如果存在則格式化並顯示
+  if (typeof finalTotal !== 'undefined' && totalPrice) {
+    totalPrice.textContent = formatCurrency(finalTotal);
+  }
+}
+
+
+// 清除購物車內全部產品
+function deleteAllCartList() {
+  axios.delete(deleteAllCartUrl)
+    .then(function (response) {
+      // 刪除成功後重新抓購物車
+      getCartList();
+    })
+    .catch(function (error) {
+      console.log(error)
+    })
+}
+
+// 刪除購物車內特定產品
+function deleteCartItem(cartId) {
+  if (!cartId) return;
+  axios.delete(`${baseURL}/api/livejs/v1/customer/${api_path}/carts/${cartId}`)
+    .then(function (response) {
+      // 刪除成功後重新取得購物車
+      getCartList();
+    })
+    .catch(function (error) {
+      console.log(error)
+    })
+}
+
+// 事件代理：購物車內刪除按鈕
+if (cartList) {
+  cartList.addEventListener('click', function (e) {
+    e.preventDefault();
+    const target = e.target;
+    // 檢查是否點擊到刪除按鈕上的 <a>，或其子元素
+    const btn = target.closest('a[data-id]');
+    if (btn) {
+      const id = btn.dataset.id;
+      deleteCartItem(id);
+    }
   });
 }
 
-function getNextId() {
-  return data.length ? Math.max(...data.map(i => i.id)) + 1 : 0;
-  //三元運算子 (條件 ? 結果 A : 結果 B) 來處理兩種情況
-  //檢查data.length(長度)
-  //map 函式遍歷 data 陣列中的每個元素 (i)。
-  //...(展開運算子, Spread Operator)將上一步生成的 ID 陣列展開成一個參數序列
-  //Math.max 接收多個數字，回傳最大值
-  //所以最大值+1
-  //: 0  如果是空的 (沒有資料)， 就直接回傳 0。
+// 綁定刪除全部按鈕
+if (discardAllBtn) {
+  discardAllBtn.addEventListener('click', function (e) {
+    e.preventDefault();
+    // 可加上確認
+    if (confirm('確認要刪除所有購物車品項嗎？')) {
+      deleteAllCartList();
+    }
+  });
+}
+
+// 送出購買訂單---還沒改到
+function createOrder() {
+
+  axios.post(`https://livejs-api.hexschool.io/api/livejs/v1/customer/${api_path}/orders`,
+    {
+      "data": {
+        "user": {
+          "name": "六角學院",
+          "tel": "07-5313506",
+          "email": "hexschool@hexschool.com",
+          "address": "高雄市六角學院路",
+          "payment": "Apple Pay"
+        }
+      }
+    }
+  ).
+    then(function (response) {
+      console.log(response.data);
+    })
+    .catch(function (error) {
+      console.log(error.response.data);
+    })
 }
 
 //執行
 function init() {
   getProductList()//從data取得產品列表
+  getCartList()////從data取得購物車列表
   //buildDataFromCards()將卡片存入data，暫時用不到，因為資料已確定從data裡讀出，沒有新增卡片的功能
 
 }
 init()
-
-//-----------------以下未改
-function createTicketElement(item) {
-  const li = document.createElement('li');
-  li.className = 'ticketCard col-4 g-8';
-  li.dataset.city = item.area;
-  li.innerHTML = `
-    <div class="bg-neutral-0 shadow-sm h-100">
-      <div class="ticketCard-img position-relative">
-        <a href="#">
-          <img src="${item.imgUrl}" alt="${item.name}">
-        </a>
-        <div class="text-center text-neutral-0 fs-5 bg-primary-300 ticketCard-region position-absolute">${item.area}</div>
-        <div class="text-center text-neutral-0 bg-primary-400 ticketCard-rank position-absolute">${item.rate}</div>
-      </div>
-      <div class="ticketCard-content py-6 px-5">
-        <div class="mb-6">
-          <h3 class="fw-medium border-bottom border-2 pb-1 border-primary-400 mb-4">
-            <a href="#" class="ticketCard-name">${item.name}</a>
-          </h3>
-          <p class="ticketCard-description text-neutral-600">
-            ${item.description}
-          </p>
-        </div>
-        <div class="ticketCard-info text-primary-400 d-flex justify-content-between ">
-          <p class="ticketCard-num fw-medium d-flex align-items-center gap-1">
-            <span><i class="bi bi-exclamation-circle-fill"></i></span>
-            剩下最後 <span id="ticketCard-num">${item.group}</span> 組
-          </p>
-          <p class="ticketCard-price fw-medium d-flex align-items-center gap-1">
-            TWD $<span id="ticketCard-price" class="fw-medium fs-2 ">${item.price}</span>
-          </p>
-        </div>
-      </div>
-    </div>
-  `;
-  return li;
-}
-
-//將data內的id的資料顯示作為套票卡片新增在html裡
-function renderTicketList(filteredData) {
-  if (!ticketList) return; // 確保 ticketList 存在
-  ticketList.innerHTML = ''; // 清空現有列表
-  filteredData.forEach(item => {
-    const li = createTicketElement(item);
-    ticketList.appendChild(li);
-    //.appendChild(li) 的意思就是把 li 這個「孩子」，加到 ticketList 這個「父親」的下面(最尾端)
-    //概念上與Arry.push 很像一個作用在陣列，一個作用在DOM
-  });
-  // 呼叫 updateCardCount 函式來更新筆數顯示
-  updateCardCount(filteredData.length);
-}
-
-function addTicket(item) {
-  item.id = getNextId();
-  // push 到 data
-  data.push(item);
-
-  //根據目前的篩選條件來重新渲染整個列表
-  const currentFilter = (searchBox && searchBox.value) ? searchBox.value : 'allCity';
-  filterAndRender(currentFilter);
-
-}
-
-//updateCardCount 是一個函式，用來更新顯示的票卡數量。
-function updateCardCount(count) {
-  if (cardCityNumEl) cardCityNumEl.textContent = count;
-}
-
-// 篩選並渲染的統一函式**
-function filterAndRender(selectedCity) {
-  // 1. 篩選資料
-  const filteredData = data.filter(item => {
-    return selectedCity === 'allCity' || item.area === selectedCity;
-  });
-
-  // 2. 渲染篩選後的資料
-  renderTicketList(filteredData);
-}
-
-// 將 data 新增項目，並輸出成 ticketCard 加入畫面，會配合當前篩選顯示狀態與更新筆數
-if (addBtn) {
-  addBtn.addEventListener('click', e => {
-    // 取消瀏覽器對特定事件的預設處理方式，執行自己的程式碼
-    e.preventDefault();
-    const nameEl = document.querySelector('#ticketName');
-    const imgEl = document.querySelector('#ticketImgUrl');
-    const areaEl = document.querySelector('#ticketRegion');
-    const descEl = document.querySelector('#ticketDescription');
-    const groupEl = document.querySelector('#ticketNum');
-    const priceEl = document.querySelector('#ticketPrice');
-    const rateEl = document.querySelector('#ticketRate');
-
-    if (!nameEl.value || !imgEl.value || areaEl.value === "") {
-      const nameElTitle = document.querySelector('#ticketName-message');
-      const imgElTitle = document.querySelector('#ticketImgUrl-message');
-      const areaElTitle = document.querySelector('#ticketRegion-message');
-      const descElTitle = document.querySelector('#ticketDescription-message');
-      const groupElTitle = document.querySelector('#ticketNum-message');
-      const priceElTitle = document.querySelector('#ticketPrice-message');
-      const rateElTitle = document.querySelector('#ticketRate-message');
-      nameElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${nameElTitle.dataset.message}<span>必填!</span>`;
-      imgElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${imgElTitle.dataset.message}<span>必填!</span>`;
-      areaElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${areaElTitle.dataset.message}<span>必填!</span>`;
-      descElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${descElTitle.dataset.message}<span>必填!</span>`;
-      groupElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${groupElTitle.dataset.message}<span>必填!</span>`;
-      priceElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${priceElTitle.dataset.message}<span>必填!</span>`;
-      rateElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${rateElTitle.dataset.message}<span>必填!</span>`;
-      return;
-    }
-
-    const newItem = {
-      name: nameEl.value.trim(),
-      // 存入顯示名稱（createTicketElement 會用 cityKey 轉成 dataset）
-      imgUrl: imgEl.value.trim(),
-      area: areaEl.value.trim(),
-      description: descEl ? descEl.value.trim() : '',
-      group: groupEl ? Number(groupEl.value) || 0 : 0,
-      price: priceEl ? Number(priceEl.value) || 0 : 0,
-      rate: rateEl ? Number(rateEl.value) || 0 : 0
-    };
-
-    addTicket(newItem);
-
-    // 清空表單
-    if (addForm) addForm.reset();
-
-  });
-}
-
-//篩選區域切換卡片
-if (searchBox) {
-  searchBox.addEventListener('change', e => {
-    const selectedCity = e.target.value;
-    filterAndRender(selectedCity);
-  });
-}
-
-
 
 
 
