@@ -3,7 +3,8 @@ const productSelect = document.querySelectorAll('.productSelect');//宣告DOM篩
 
 const cartList = document.querySelector('.cartList');// 宣告DOM購物車清單 (tbody)
 const totalPrice = document.querySelector('.shoppingCart-table tfoot td:last-child'); // 宣告DOM購物車總計金額
-const discardAllBtn = document.querySelector('.discardAllBtn');//宣告DOM購物車刪除所有產品
+// 只選取位於購物車區塊內的刪除全部按鈕，避免與管理後台（admin.html）同名按鈕衝突
+const discardAllBtn = document.querySelector('.shoppingCart .discardAllBtn');//宣告DOM購物車刪除所有產品
 const addOrderBtn = document.querySelector('.orderInfo-btn');//宣告DOM送出預訂資料
 window.latestOrderData = null; // 用於儲存最新的訂單資料
 
@@ -221,8 +222,8 @@ if (cartList) {
   });
 }
 
-// 綁定刪除全部按鈕
-if (discardAllBtn) {
+// 綁定刪除全部按鈕（僅在購物車表格存在時才綁定）
+if (discardAllBtn && document.querySelector('.shoppingCart-table')) {
   discardAllBtn.addEventListener('click', function (e) {
     e.preventDefault();
     // 可加上確認
