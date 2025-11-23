@@ -5,7 +5,7 @@ const cartList = document.querySelector('.cartList');// 宣告DOM購物車清單
 const totalPrice = document.querySelector('.shoppingCart-table tfoot td:last-child'); // 宣告DOM購物車總計金額
 const discardAllBtn = document.querySelector('.discardAllBtn');//宣告DOM購物車刪除所有產品
 const addOrderBtn = document.querySelector('.orderInfo-btn');//宣告DOM送出預訂資料
-let latestOrderData = null; // 用於儲存最新的訂單資料
+window.latestOrderData = null; // 用於儲存最新的訂單資料
 
 //通用API路徑
 const baseURL = "https://livejs-api.hexschool.io";
@@ -242,8 +242,7 @@ function createOrder(userData) {
     .then(function (response) {
       // 訂單送出成功，顯示提示並重新取得購物車（API 通常會清空購物車或回傳新狀態）
       getCartList();
-      latestOrderData = response.data;
-      console.log(response.data);
+      window.latestOrderData = response.data;
     })
     .catch(function (error) {
       console.log(error.response ? error.response.data : error);
