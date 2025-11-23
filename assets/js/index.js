@@ -1,67 +1,115 @@
-const ticketList = document.querySelector('.ticketList');
-//篩選區域監聽事件
-const searchBox = document.querySelector('.searchBox');//宣告DOM篩選區域
-const cardCityNumEl = document.querySelector('.cardCityNum');//宣告DOM卡片數量
-const addBtn = document.querySelector('#addTicketBtn');
-const addForm = document.querySelector('.addTicketForm');
+const productWrap = document.querySelector('.productWrap');//宣告DOM產品卡片 渲染畫面用(產品內容)
+const productSelect = document.querySelectorAll('.productSelect');//宣告DOM篩選區域
+const addCardBtn = document.querySelector('.addCardBtn');//宣告DOM加入購物車
+const shoppingCart = document.querySelector('.shoppingCart');//宣告DOM購物車
+const clearBroductBtn = document.querySelector('.discardBtn');//宣告DOM購物車刪除產品
+const discardAllBtn = document.querySelector('.discardAllBtn');//宣告DOM購物車刪除所有產品
+const addOrderBtn = document.querySelector('.orderInfo-btn');//宣告DOM送出預訂資料
 
-let data = [
-    {
-      "id": 0,
-      "name": "肥宅心碎賞櫻3日",
-      "imgUrl": "https://images.unsplash.com/photo-1522383225653-ed111181a951?ixid=MXwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHw%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=1655&q=80",
-      "area": "高雄",
-      "description": "賞櫻花最佳去處。肥宅不得不去的超讚景點！",
-      "group": 87,
-      "price": 1400,
-      "rate": 10
-    },
-    {
-      "id": 1,
-      "name": "貓空纜車雙程票",
-      "imgUrl": "https://images.unsplash.com/photo-1501393152198-34b240415948?ixid=MXwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHw%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=1650&q=80",
-      "area": "台北",
-      "description": "乘坐以透明強化玻璃為地板的「貓纜之眼」水晶車廂，享受騰雲駕霧遨遊天際之感",
-      "group": 99,
-      "price": 240,
-      "rate": 2
-    },
-    {
-      "id": 2,
-      "name": "台中谷關溫泉會1日",
-      "imgUrl": "https://images.unsplash.com/photo-1535530992830-e25d07cfa780?ixid=MXwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHw%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=1650&q=80",
-      "area": "台中",
-      "description": "全館客房均提供谷關無色無味之優質碳酸原湯，並取用八仙山之山冷泉供蒞臨貴賓沐浴及飲水使用。",
-      "group": 20,
-      "price": 1765,
-      "rate": 7
+//通用API路徑
+const baseURL = "https://livejs-api.hexschool.io";
+const api_path = "h2cjdqaay3mbskg25gmawhsue4u2";
+//const token = "h2cjdqaay3mbskg25gmawhsue4u2";
+//匯入產品API
+const productsUrl = `${baseURL}/api/livejs/v1/customer/${api_path}/products`;
+
+//這個宣告可能用不到
+let data = [];//用來放API回來的資料
+const productCards = document.querySelectorAll('.productCard');//宣告DOM每一張卡片)
+
+// 取得產品列表
+function getProductList() {
+  axios.get(productsUrl).
+    then(function (response) {
+      const productsData = response.data.products;
+      console.log(productsData); //檢查用
+      getProductsData(productsData); //渲染畫面(產品內容)
+      setFilter(productsData) //渲染畫面(篩選的產品內容)
+    })
+    .catch(function (error) {
+      console.log(error)
+    })
+}
+
+//渲染畫面(產品內容)
+function getProductsData(data) {
+  let arr = "";
+  // 定義格式化函式
+  const formatCurrency = (value) => {
+    //將輸入值強制轉換為數字
+    const number = Number(value);
+    // 檢查是否為有效的數字
+    if (typeof number !== 'number' || isNaN(number)) {
+      return '$NT 0';
     }
-  ];
 
-//將每一個html裡的ticketCard的資料ticketCard-region、ticketCard-rank、img src、ticketCard-name、ticketCard-description、ticketCard-num、ticketCard-price的值存入data陣列中
-const ticketCards = document.querySelectorAll('.ticketCard');
-//ticketCards.forEach(function(card)
-ticketCards.forEach(card => {
-  const id = getNextId();
-  const name = card.querySelector('.ticketCard-name').textContent;
-  const imgUrl = card.querySelector('img').src;
-  const area = card.querySelector('.ticketCard-region').textContent;
-  const description = card.querySelector('.ticketCard-description').textContent;
-  const group = Number(card.querySelector('#ticketCard-num').textContent);
-  const price = Number(card.querySelector('#ticketCard-price').textContent);
-  const rate = Number(card.querySelector('.ticketCard-rank').textContent);
+    // 使用 toLocaleString 進行格式化
+    return number.toLocaleString('zh-TW', {
+      style: 'currency',
+      currency: 'NTD',
+      minimumFractionDigits: 0 // 確保不顯示小數點
+    }).replace('NTD', 'NT$'); // 將預設的 'NTD' 替換成 'NT$'
+  };
 
-  data.push({
-    id,
-    name,
-    imgUrl,
-    area,
-    description,
-    group,
-    price,
-    rate
+  data.forEach((item) => {
+    // 格式化價格
+    const formattedOriginPrice = formatCurrency(item.origin_price);
+    const formattedNowPrice = formatCurrency(item.price);
+    arr += `
+          <li class="productCard">
+        <h4 class="productType">新品</h4>
+        <img
+          src="${item.images}"
+          alt="">
+        <a href="#" class="addCardBtn">加入購物車</a>
+        <h3 class="ticket-name">${item.title}</h3>
+        <del class="originPrice">${formattedOriginPrice}</del>
+        <p class="nowPrice">${formattedNowPrice}</p>
+      </li>
+          `;
   });
-});
+  productWrap.innerHTML = arr;
+}
+
+// 設定篩選功能
+function setFilter(allData) {
+  productSelect.forEach(select => {
+    select.addEventListener("change", (e) => {
+      const category = e.target.value;
+      if (category === "全部") {
+        getProductsData(allData);
+      } else {
+        const filterData = allData.filter(item => item.category === category);
+        getProductsData(filterData);
+      }
+    });
+  });
+}
+
+function buildDataFromCards() {
+  data = [];
+  //productCards.forEach(function(card
+  productCards.forEach(card => {
+    const id = getNextId();
+    const productType = card.querySelector('.productType').textContent;
+    const imgUrl = card.querySelector('img').src;
+    const name = card.querySelector('.ticket-name').textContent;
+    const originPrice = Number(card.querySelector('.originPrice').textContent.replace(/[^\d]/g, ''));
+    //replace(/[^\d]/g, '') /.../ =正規表達式字面量; []=字元集合; ^=不是; /d=0~9; g=全域搜索(這段字串裡)
+    //string.replace(搜尋目標, 替換成什麼)
+    const nowPrice = Number(card.querySelector('.nowPrice').textContent.replace(/[^\d]/g, ''));
+
+    data.push({
+      id,
+      productType,
+      imgUrl,
+      name,
+      originPrice,
+      nowPrice
+    });
+
+  });
+}
 
 function getNextId() {
   return data.length ? Math.max(...data.map(i => i.id)) + 1 : 0;
@@ -74,6 +122,15 @@ function getNextId() {
   //: 0  如果是空的 (沒有資料)， 就直接回傳 0。
 }
 
+//執行
+function init() {
+  getProductList()//從data取得產品列表
+  //buildDataFromCards()將卡片存入data，暫時用不到，因為資料已確定從data裡讀出，沒有新增卡片的功能
+
+}
+init()
+
+//-----------------以下未改
 function createTicketElement(item) {
   const li = document.createElement('li');
   li.className = 'ticketCard col-4 g-8';
@@ -114,15 +171,15 @@ function createTicketElement(item) {
 //將data內的id的資料顯示作為套票卡片新增在html裡
 function renderTicketList(filteredData) {
   if (!ticketList) return; // 確保 ticketList 存在
-    ticketList.innerHTML = ''; // 清空現有列表
-    filteredData.forEach(item => {
-        const li = createTicketElement(item);
-        ticketList.appendChild(li);
-        //.appendChild(li) 的意思就是把 li 這個「孩子」，加到 ticketList 這個「父親」的下面(最尾端)
-        //概念上與Arry.push 很像一個作用在陣列，一個作用在DOM
-    });
-    // 呼叫 updateCardCount 函式來更新筆數顯示
-    updateCardCount(filteredData.length);
+  ticketList.innerHTML = ''; // 清空現有列表
+  filteredData.forEach(item => {
+    const li = createTicketElement(item);
+    ticketList.appendChild(li);
+    //.appendChild(li) 的意思就是把 li 這個「孩子」，加到 ticketList 這個「父親」的下面(最尾端)
+    //概念上與Arry.push 很像一個作用在陣列，一個作用在DOM
+  });
+  // 呼叫 updateCardCount 函式來更新筆數顯示
+  updateCardCount(filteredData.length);
 }
 
 function addTicket(item) {
@@ -143,13 +200,13 @@ function updateCardCount(count) {
 
 // 篩選並渲染的統一函式**
 function filterAndRender(selectedCity) {
-    // 1. 篩選資料
-    const filteredData = data.filter(item => {
-        return selectedCity === 'allCity' || item.area === selectedCity;
-    });
+  // 1. 篩選資料
+  const filteredData = data.filter(item => {
+    return selectedCity === 'allCity' || item.area === selectedCity;
+  });
 
-    // 2. 渲染篩選後的資料
-    renderTicketList(filteredData);
+  // 2. 渲染篩選後的資料
+  renderTicketList(filteredData);
 }
 
 // 將 data 新增項目，並輸出成 ticketCard 加入畫面，會配合當前篩選顯示狀態與更新筆數
@@ -165,29 +222,29 @@ if (addBtn) {
     const priceEl = document.querySelector('#ticketPrice');
     const rateEl = document.querySelector('#ticketRate');
 
-   if (!nameEl.value || !imgEl.value || areaEl.value === "") {
-    const nameElTitle = document.querySelector('#ticketName-message');
-    const imgElTitle = document.querySelector('#ticketImgUrl-message');
-    const areaElTitle = document.querySelector('#ticketRegion-message');
-    const descElTitle = document.querySelector('#ticketDescription-message');
-    const groupElTitle = document.querySelector('#ticketNum-message');
-    const priceElTitle = document.querySelector('#ticketPrice-message');
-    const rateElTitle = document.querySelector('#ticketRate-message');
-    nameElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${nameElTitle.dataset.message}<span>必填!</span>`;
-    imgElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${imgElTitle.dataset.message}<span>必填!</span>`;
-    areaElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${areaElTitle.dataset.message}<span>必填!</span>`;
-    descElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${descElTitle.dataset.message}<span>必填!</span>`;
-    groupElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${groupElTitle.dataset.message}<span>必填!</span>`;
-    priceElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${priceElTitle.dataset.message}<span>必填!</span>`;
-    rateElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${rateElTitle.dataset.message}<span>必填!</span>`;
-    return;
-        }
+    if (!nameEl.value || !imgEl.value || areaEl.value === "") {
+      const nameElTitle = document.querySelector('#ticketName-message');
+      const imgElTitle = document.querySelector('#ticketImgUrl-message');
+      const areaElTitle = document.querySelector('#ticketRegion-message');
+      const descElTitle = document.querySelector('#ticketDescription-message');
+      const groupElTitle = document.querySelector('#ticketNum-message');
+      const priceElTitle = document.querySelector('#ticketPrice-message');
+      const rateElTitle = document.querySelector('#ticketRate-message');
+      nameElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${nameElTitle.dataset.message}<span>必填!</span>`;
+      imgElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${imgElTitle.dataset.message}<span>必填!</span>`;
+      areaElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${areaElTitle.dataset.message}<span>必填!</span>`;
+      descElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${descElTitle.dataset.message}<span>必填!</span>`;
+      groupElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${groupElTitle.dataset.message}<span>必填!</span>`;
+      priceElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${priceElTitle.dataset.message}<span>必填!</span>`;
+      rateElTitle.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${rateElTitle.dataset.message}<span>必填!</span>`;
+      return;
+    }
 
     const newItem = {
       name: nameEl.value.trim(),
       // 存入顯示名稱（createTicketElement 會用 cityKey 轉成 dataset）
       imgUrl: imgEl.value.trim(),
-      area: areaEl.value.trim(), 
+      area: areaEl.value.trim(),
       description: descEl ? descEl.value.trim() : '',
       group: groupEl ? Number(groupEl.value) || 0 : 0,
       price: priceEl ? Number(priceEl.value) || 0 : 0,
@@ -198,22 +255,21 @@ if (addBtn) {
 
     // 清空表單
     if (addForm) addForm.reset();
-    
+
   });
 }
 
 //篩選區域切換卡片
 if (searchBox) {
-    searchBox.addEventListener('change', e => {
-        const selectedCity = e.target.value;
-        filterAndRender(selectedCity);
-    });
+  searchBox.addEventListener('change', e => {
+    const selectedCity = e.target.value;
+    filterAndRender(selectedCity);
+  });
 }
 
-// 頁面啟動時：初始化顯示全部卡片和計數
-// 注意：searchBox 的初始值是 "地區搜尋"，這不是 'allCity'
-// 所以這裡要用一個固定的值來初始化
-filterAndRender('allCity'); // 預設顯示全部資料
+
+
+
 
 
 
