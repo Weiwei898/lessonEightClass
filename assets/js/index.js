@@ -74,19 +74,7 @@ function getProductsData(data) {
         `;
   });
   productWrap.innerHTML = arr;
-  //加入購物車的連結(按鈕)DOM
-  if (productWrap) {
-    productWrap.addEventListener('click', function (e) {
-      // 檢查點擊的目標是否是我們要的按鈕
-      if (e.target.classList.contains('addCardBtn')) {
-        // 取消 a 標籤預設的跳轉行為(可在渲染改用<button type="button" class="addCardBtn" data-id="${item.id}">加入購物車</button>)
-        e.preventDefault();
-        // 獲取產品 ID (假設您已經在模板中加入 data-id 屬性)
-        addCartItem(e.target.dataset.id);
-        
-      }
-    });
-  }
+
 }
 
 // 設定篩選功能在getProductList()執行
@@ -345,11 +333,25 @@ if (addOrderBtn) {
   });
 }
 
+// 將事件委派單獨出來，只執行一次
+function setupProductEvents() {
+    if (productWrap) {
+        productWrap.addEventListener('click', function (e) {
+            // 檢查是否點擊到「加入購物車」按鈕
+            if (e.target.classList.contains('addCardBtn')) {
+                e.preventDefault();
+                // 獲取產品 ID
+                addCartItem(e.target.dataset.id);
+            }
+        });
+    }
+}
 
 //執行
 function init() {
   getProductList()//從data取得產品列表
   getCartList()//從data取得購物車列表
+  setupProductEvents(); // 確保這裡只執行一次事件綁定
 }
 init()
 
