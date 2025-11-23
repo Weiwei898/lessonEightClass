@@ -5,7 +5,7 @@ const cartList = document.querySelector('.cartList');// 宣告DOM購物車清單
 const totalPrice = document.querySelector('.shoppingCart-table tfoot td:last-child'); // 宣告DOM購物車總計金額
 const discardAllBtn = document.querySelector('.discardAllBtn');//宣告DOM購物車刪除所有產品
 const addOrderBtn = document.querySelector('.orderInfo-btn');//宣告DOM送出預訂資料
-
+let latestOrderData = null; // 用於儲存最新的訂單資料
 
 //通用API路徑
 const baseURL = "https://livejs-api.hexschool.io";
@@ -19,6 +19,9 @@ const addCartUrl = `${baseURL}/api/livejs/v1/customer/${api_path}/carts`;
 const getCartUrl = `${baseURL}/api/livejs/v1/customer/${api_path}/carts`;
 // 清除購物車內全部產品API
 const deleteAllCartUrl = `${baseURL}/api/livejs/v1/customer/${api_path}/carts`;
+// 送出購買訂單API
+const addOrderUrl = `${baseURL}/api/livejs/v1/customer/${api_path}/orders`;
+
 
 // 取得產品列表
 function getProductList() {
@@ -231,36 +234,122 @@ if (discardAllBtn) {
   });
 }
 
-// 送出購買訂單---還沒改到
-function createOrder() {
-
-  axios.post(`https://livejs-api.hexschool.io/api/livejs/v1/customer/${api_path}/orders`,
-    {
-      "data": {
-        "user": {
-          "name": "六角學院",
-          "tel": "07-5313506",
-          "email": "hexschool@hexschool.com",
-          "address": "高雄市六角學院路",
-          "payment": "Apple Pay"
-        }
+// 送出購買訂單
+// 送出購買訂單（修改：改為接收表單傳入的 userData，並在成功後重新取得購物車）
+function createOrder(userData) {
+  // 傳入的 userData 應為 { name, tel, email, address, payment }
+  const payload = {
+    data: {
+      user: userData || {
+        name: "六角學院",
+        tel: "07-5313506",
+        email: "hexschool@hexschool.com",
+        address: "高雄市六角學院路",
+        payment: "Apple Pay"
       }
     }
-  ).
-    then(function (response) {
+  };
+
+  axios.post(addOrderUrl, payload)
+    .then(function (response) {
+      // 訂單送出成功，顯示提示並重新取得購物車（API 通常會清空購物車或回傳新狀態）
+      getCartList();
+      latestOrderData = response.data;
       console.log(response.data);
     })
     .catch(function (error) {
-      console.log(error.response.data);
-    })
+      console.log(error.response ? error.response.data : error);
+    });
 }
+
+// 送出預訂資料
+if (addOrderBtn) {
+  addOrderBtn.addEventListener('click', e => {
+    // 取消瀏覽器對特定事件的預設處理方式，執行自己的程式碼
+    e.preventDefault();
+    const nameEl = document.querySelector('#customerName');
+    const phoneEl = document.querySelector('#customerPhone');
+    const emailEl = document.querySelector('#customerEmail');
+    const addressEl = document.querySelector('#customerAddress');
+    const payEl = document.querySelector('#tradeWay');
+
+    // 修改：改為使用頁面上的提示區塊顯示錯誤訊息（優先使用 .alert-message p），若不存在則 fallback 到 .orderInfo-message
+    const messageElements = document.querySelectorAll('.alert-message p');
+    let isValid = true;
+
+    // 若找不到 .alert-message p，改用頁面上已有的 .orderInfo-message（舊版樣式）
+    const usedMessageEls = messageElements.length ? messageElements : document.querySelectorAll('.orderInfo-message');
+
+    // 清空所有舊的錯誤提示
+    usedMessageEls.forEach(p => p.innerHTML = '');
+    // 清除先前的輸入錯誤樣式
+    document.querySelectorAll('.orderInfo-input--error').forEach(el => el.classList.remove('orderInfo-input--error'));
+
+    // 未輸入資料的提示：針對每個欄位尋找對應的訊息顯示節點（附近的 .orderInfo-message 或具有 data-message 的節點）
+    const setFieldMessage = (inputEl, defaultLabel, msg) => {
+      if (!inputEl) return;
+      // 優先找尋同一 inputWrap 底下的提示元素
+      const wrap = inputEl.closest('.orderInfo-inputWrap');
+      let msgEl = null;
+      if (wrap) msgEl = wrap.querySelector('.orderInfo-message');
+      // 若沒找到，再找具有對應 data-message 的元素
+      if (!msgEl) msgEl = document.querySelector(`.orderInfo-message[data-message="${defaultLabel}"]`);
+      // 最後 fallback 到頁面上第一個可用的提示元素
+      if (!msgEl && usedMessageEls.length) msgEl = usedMessageEls[0];
+      if (msgEl) msgEl.innerHTML = `<i class="bi bi-exclamation-circle-fill"></i>${msgEl.dataset.message || defaultLabel}<span>${msg}</span>`;
+    };
+
+    if (!nameEl || !phoneEl || !emailEl || !addressEl) {
+      alert('找不到表單欄位，請確認 DOM 結構。');
+      return;
+    }
+
+    if (!nameEl.value.trim()) {
+      setFieldMessage(nameEl, '姓名', '必填');
+      // 將輸入框加上錯誤樣式
+      nameEl.classList.add('orderInfo-input--error');
+      isValid = false;
+    }
+    if (!phoneEl.value.trim()) {
+      setFieldMessage(phoneEl, '電話', '必填');
+      phoneEl.classList.add('orderInfo-input--error');
+      isValid = false;
+    }
+    if (!emailEl.value.trim()) {
+      setFieldMessage(emailEl, 'Email', '必填');
+      emailEl.classList.add('orderInfo-input--error');
+      isValid = false;
+    }
+    if (!addressEl.value.trim()) {
+      setFieldMessage(addressEl, '寄送地址', '必填');
+      addressEl.classList.add('orderInfo-input--error');
+      isValid = false;
+    }
+
+    if (!isValid) return; // 若有欄位未通過，停止送出
+
+    const userData = {
+      name: nameEl.value.trim(),
+      tel: phoneEl.value.trim(),
+      email: emailEl.value.trim(),
+      address: addressEl.value.trim(),
+      payment: payEl ? payEl.value : 'ATM'
+    };
+
+    // 呼叫 createOrder 並送出表單資料（createOrder 會在成功後重新取得購物車）
+    createOrder(userData);
+
+    // 清空表單
+    const orderForm = document.querySelector('.orderInfo-form');
+    if (orderForm) orderForm.reset();
+  });
+}
+
 
 //執行
 function init() {
   getProductList()//從data取得產品列表
-  getCartList()////從data取得購物車列表
-  //buildDataFromCards()將卡片存入data，暫時用不到，因為資料已確定從data裡讀出，沒有新增卡片的功能
-
+  getCartList()//從data取得購物車列表
 }
 init()
 

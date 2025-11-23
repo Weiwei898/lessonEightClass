@@ -650,6 +650,12 @@ body {
   margin-right: 10px;
 }
 
+/* 新增：輸入欄位錯誤樣式（紅色框） */
+.orderInfo-input--error {
+  border-color: #C72424 !important;
+  box-shadow: 0 0 0 3px rgba(199,36,36,0.08);
+}
+
 .orderInfo-inputWrap {
   position: relative;
 }
